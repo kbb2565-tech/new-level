@@ -554,29 +554,48 @@ async def decode_protobuf(data):
     return json.dumps(parsed_results_dict)
 
 async def build_majorlogin_payload(open_id, access_token, platform, client_version, device_info):
-    """Build MajorLogin payload to match the supplied FRUX MAJORLOGIN #3 capture."""
+    """Build the MajorLogin request using the persistent device profile."""
     try:
         device_info = device_info or {}
         proto = thunderFF_pb2.MajorLoginReq()
 
-        proto.event_time = str(int(time.time()))
+        proto.event_time = str(datetime.now())[:-7]
         proto.game_name = "free fire"
-        proto.platform_id = 1
-        proto.client_version = client_version or "1.132.1"
+        proto.platform_id = 1 if str(platform) in {"1", "4"} else int(platform)
+        proto.client_version = client_version
         proto.client_version_code = "2019121227"
-        proto.system_software = device_info.get("system_software", "Android OS 10 / API-29 (QP1A.190711.020/V12.0.26.0.QCDINXM)")
+
+        # Device profile values. Missing values keep the existing safe defaults.
+        proto.system_software = device_info.get(
+            "system_software",
+            "Android OS 10 / API-29 (QP1A.190711.020/1617006012)"
+        )
         proto.system_hardware = device_info.get("brand", "Handheld")
-        proto.telecom_operator = device_info.get("telecom_operator", "JIO")
-        proto.network_type = device_info.get("network_type", "WIFI")
+        proto.device_type = device_info.get("model", "Handheld")
         proto.screen_width = int(device_info.get("screen_width", 1600))
         proto.screen_height = int(device_info.get("screen_height", 720))
         proto.screen_dpi = str(device_info.get("screen_dpi", "320"))
-        proto.processor_details = device_info.get("processor_details", "ARMv7 VFPv3 NEON | 2001 | 8")
-        proto.memory = int(device_info.get("memory", 3790))
+        proto.processor_details = device_info.get(
+            "processor_details", "ARM64 FP ASIMD AES | 2301 | 8"
+        )
+        proto.memory = int(device_info.get("memory", 2799))
         proto.gpu_renderer = device_info.get("gpu_renderer", "PowerVR Rogue GE8320")
-        proto.gpu_version = device_info.get("gpu_version", "OpenGL ES 3.2 build 1.11@5425693")
-        proto.unique_device_id = device_info.get("unique_device_id", "Google|00000000-0000-0000-0000-000000000000")
-        proto.client_ip = device_info.get("client_ip", "45.124.24.66")
+        proto.unique_device_id = device_info.get(
+            "unique_device_id", "Google|9f7d6b8b-b10c-454a-852d-06332cd498eb"
+        )
+        proto.client_ip = device_info.get("client_ip", "151.158.158.220")
+
+        operator = device_info.get("telecom_operator", "Vi India")
+        proto.telecom_operator = operator
+        proto.network_operator_a = device_info.get("network_operator_a", operator)
+        proto.network_type = device_info.get("network_type", "WIFI")
+        proto.network_type_a = device_info.get("network_type_a", "WIFI")
+        proto.cpu_type = 1
+        proto.cpu_architecture = device_info.get("cpu_architecture", "32")
+        proto.gpu_version = device_info.get(
+            "gpu_version", "OpenGL ES 3.2 build 1.11@5425693"
+        )
+        proto.graphics_api = device_info.get("graphics_api", "OpenGLES2")
         proto.language = device_info.get("language", "en")
 
         proto.open_id = open_id
@@ -589,90 +608,75 @@ async def build_majorlogin_payload(open_id, access_token, platform, client_versi
         proto.primary_platform_type = str(platform)
         proto.reg_avatar = 1
         proto.channel_type = 6
-        proto.network_operator_a = device_info.get("network_operator_a", "JIO")
-        proto.network_type_a = device_info.get("network_type_a", "WIFI")
-        proto.device_type = device_info.get("device_type", "Handheld")
-        proto.device_model = device_info.get("model", "Redmi 1908034TI")
-        proto.country_code = device_info.get("country_code", "IN")
-        proto.client_using_version = device_info.get("client_using_version", "1ac4b80ecf0478a44203bf8fac6120f5")
-        proto.cpu_type = 1
-        proto.cpu_architecture = "32"
-        proto.graphics_api = "OpenGLES2"
+
+        memory_available = proto.memory_available
+        memory_available.version = 55
+        memory_available.hidden_value = 81
+
+        proto.external_storage_total = 19799
+        proto.external_storage_available = 2536
+        proto.internal_storage_total = 5056
+        proto.internal_storage_available = 2768
+        proto.game_disk_storage_total = 19999
+        proto.game_disk_storage_available = 2536
+        proto.external_sdcard_total_storage = 19799
+        proto.external_sdcard_avail_storage = 2536
+
+        proto.library_path = device_info.get(
+            "library_path",
+            "/data/app/com.dts.freefireth-ShI7E0dK8p1IiZ785pvuVQ==/lib/arm64"
+        )
+        proto.library_token = device_info.get(
+            "library_token",
+            "38f4751a330688ab124c2c804cec90a5|/data/app/com.dts.freefireth-ShI7E0dK8p1IiZ785pvuVQ==/base.apk"
+        )
+        proto.client_using_version = device_info.get(
+            "client_using_version", "0a0cf81113e8af8c72a369fb72a21a1e"
+        )
         proto.supported_astc_bitset = int(device_info.get("supported_astc_bitset", 3071))
+        proto.analytics_detail = device_info.get(
+            "analytics_detail",
+            "KqsHT+UrR1HKqb6+1db+Ofei+NtZr2+hbiBo3yKDL8w+8E3S5qF2IgEEe1fFQFyHRzl4iyHjHp+QsfeLbjJ6+DidTiKxm0ak2uYYa6QR4nAUdlZR"
+        )
+        proto.loading_time = int(device_info.get("loading_time", 111107))
+        proto.release_channel = device_info.get("release_channel", "android")
+        proto.extra_info = device_info.get(
+            "extra_info",
+            "KqsHT+UrR1HKqb6+1db+Ofei+NtZr2+hbiBo3yKDL8w+8E3S5qF2IgEEe1fFQFyHRzl4iyHjHp+QsfeLbjJ6+DidTiKxm0ak2uYYa6QR4nAUdlZR"
+        )
+        proto.android_engine_init_flag = int(device_info.get("android_engine_init_flag", 111207))
+        proto.if_push = 1
+        proto.is_vpn = 0
 
-        for name, value in {
-            "external_storage_total": 53041,
-            "external_storage_available": 7291,
-            "internal_storage_total": 2176,
-            "game_disk_storage_available": 7395,
-            "game_disk_storage_total": 53041,
-            "external_sdcard_avail_storage": 7395,
-            "external_sdcard_total_storage": 53041,
-        }.items():
-            if hasattr(proto, name):
-                setattr(proto, name, int(device_info.get(name, value)))
-
-        if hasattr(proto, "internal_storage_available"):
-            proto.internal_storage_available = int(device_info.get("internal_storage_available", 0))
-
-        proto.library_path = device_info.get("library_path", "/data/app/com.dts.freefireth-yAPXAhp2RyIlrtNAM0VzKQ==/lib/arm")
-        proto.library_token = device_info.get("library_token", "066a589fa3f5658377634fe7b1d88556|/data/app/com.dts.freefireth-yAPXAhp2RyIlrtNAM0VzKQ==/base.apk")
-
-        optional_values = {
-            "field_70": 4,
-            "field_85": 3,
-            "field_96": '{"cur_rate":null,"support_etc2":false}',
-            "field_102": "BTL\020S\016[\0040",
-            "field_104": 47591,
-            "field_105": 1,
-            "field_106": "https://dl-bs.ggpolarbear.com/live/ABHotUpdates/|https://core-bs.ggpolarbear.com/live/ABHotUpdates/|1c2462939e53942fc995400436a3dc7b",
-            "field_107": "c8e41b7a93f02d56e1a94c7b8203f5d1",
-        }
-        for name, value in optional_values.items():
-            if hasattr(proto, name):
-                setattr(proto, name, value)
-        if hasattr(proto, "loading_time"):
-            proto.loading_time = int(device_info.get("loading_time", 9329))
-        if hasattr(proto, "release_channel"):
-            proto.release_channel = device_info.get("release_channel", "3rd_party")
-        if hasattr(proto, "extra_info"):
-            proto.extra_info = device_info.get("extra_info", "KqsHT3r+fXQIu/dyZrEa8fJBhbJ5uqDES7YsAUfu+Mck9A+Bly6lFfYk7Q7Nj68pqI8I3g4Oz3gLxWef6Eh/jKyzHug=")
-        if hasattr(proto, "android_engine_init_flag"):
-            proto.android_engine_init_flag = int(device_info.get("android_engine_init_flag", 111207))
-        if hasattr(proto, "if_push"):
-            proto.if_push = 1
-        if hasattr(proto, "memory_available"):
-            proto.memory_available.version = 55
-            proto.memory_available.hidden_value = 81
-
-        return await aes_encrypt(proto.SerializeToString(), AES_KEY, AES_IV)
+        payload = proto.SerializeToString()
+        return await aes_encrypt(payload, AES_KEY, AES_IV)
     except Exception as e:
         print_error(f"[MAJORLOGIN-PAYLOAD] {e}")
         return None
 
 
-
 def _majorlogin_attr(obj, *names, default=None):
-    """Read MajorLogin response fields using capture-era and legacy names."""
     for name in names:
         try:
             value = getattr(obj, name)
+            if value not in (None, "", b""):
+                return value
         except Exception:
-            continue
-        if value not in (None, "", 0, b""):
-            return value
+            pass
     return default
 
 
 async def send_majorlogin(data, release_version, server_url):
-    """Send MajorLogin and parse the 64-byte transport header seen in FRUX dump #3."""
+    """Send MajorLogin and tolerate the response framing used by current servers."""
     endpoints = []
+
     if server_url:
         base = str(server_url).strip()
         if base:
             if not base.startswith(("http://", "https://")):
                 base = "https://" + base
             endpoints.append(base.rstrip("/") + "/MajorLogin")
+
     fallback = "https://loginbp.ppmainecoonghj.com/MajorLogin"
     if fallback not in endpoints:
         endpoints.append(fallback)
@@ -680,41 +684,43 @@ async def send_majorlogin(data, release_version, server_url):
     for url in endpoints:
         try:
             req_headers = headers.copy()
-            req_headers["ReleaseVersion"] = release_version or "OB55"
+            req_headers["ReleaseVersion"] = release_version
             req_headers["Content-Type"] = "application/octet-stream"
-            req_headers.pop("Expect", None)
+
             response = await client.post(url, headers=req_headers, data=data)
             if response.status_code != 200:
                 continue
+
             content = response.content
             if len(content) < 20:
                 continue
 
-            offsets = [64, 0]
-            offsets.extend(range(1, min(128, len(content))))
-            seen = set()
-            for offset in offsets:
-                if offset in seen or offset >= len(content):
-                    continue
-                seen.add(offset)
+            # Direct protobuf parse first.
+            try:
+                candidate = thunderFF_pb2.MajorLoginRes()
+                candidate.ParseFromString(content)
+                if getattr(candidate, "token", "") and (getattr(candidate, "server_url", "") or getattr(candidate, "url", "")):
+                    return candidate
+            except Exception:
+                pass
+
+            # Some responses contain a small transport/header prefix.
+            for offset in [64] + [i for i in range(0, min(128, len(content))) if i != 64]:
                 try:
                     candidate = thunderFF_pb2.MajorLoginRes()
                     candidate.ParseFromString(content[offset:])
+                    if getattr(candidate, "token", "") and (getattr(candidate, "server_url", "") or getattr(candidate, "url", "")):
+                        return candidate
                 except Exception:
                     continue
-                account_id = _majorlogin_attr(candidate, "account_id", default=0)
-                token = _majorlogin_attr(candidate, "token", default="")
-                base_url = _majorlogin_attr(candidate, "server_url", "url", default="")
-                if account_id and token and base_url:
-                    return candidate
+
         except (httpx.HTTPError, asyncio.TimeoutError):
             continue
-        except Exception as e:
-            print_warning(f"[MAJORLOGIN] {url} failed: {e}")
+        except Exception:
             continue
+
     print_error("[MAJORLOGIN] all endpoints failed")
     return None
-
 
 async def send_getlogin(data, base_url, token, release_version):
     try:
@@ -1832,7 +1838,7 @@ async def process_account_uid_pass(uid: str, password: str) -> Optional[Dict]:
         majorlogin_response = await send_majorlogin(login_payload_data, release_version, server_url)
         if majorlogin_response is None:
             return None
-        getlogin_result = await send_getlogin(login_payload_data, _majorlogin_attr(majorlogin_response, 'server_url', 'url', default=''), majorlogin_response.token, release_version)
+        getlogin_result = await send_getlogin(login_payload_data, getattr(majorlogin_response, "server_url", getattr(majorlogin_response, "url", "")), majorlogin_response.token, release_version)
         if getlogin_result is None:
             return None
         res_proto, dict_res = getlogin_result
@@ -1842,7 +1848,7 @@ async def process_account_uid_pass(uid: str, password: str) -> Optional[Dict]:
         exp = int(get_proto_field(dict_res, 7, 0))
         likes = int(get_proto_field(dict_res, 8, 0))
         nickname = res_proto.nickname or get_proto_field(dict_res, 4, f"Player_{acc_id}")
-        region = _majorlogin_attr(majorlogin_response, 'lock_region', 'region', default='BD') or get_proto_field(dict_res, 3, "BD")
+        region = majorlogin_response.region or get_proto_field(dict_res, 3, "BD")
 
         bot_state.register_account(uid=acc_id, nickname=nickname, region=region, level=level, exp=exp, likes=likes)
 
@@ -1857,14 +1863,14 @@ async def process_account_uid_pass(uid: str, password: str) -> Optional[Dict]:
             'access_token': access_token,
             'platform': str(platform),
             'token': majorlogin_response.token,
-            'server_time': _majorlogin_attr(majorlogin_response, 'kts', 'server_time', default=0),
-            'aes_ak': _majorlogin_attr(majorlogin_response, 'ak', 'aes_ak', default=b''),
-            'iv_i': _majorlogin_attr(majorlogin_response, 'aiv', 'iv_i', default=b''),
+            'server_time': getattr(majorlogin_response, "kts", getattr(majorlogin_response, "server_time", 0)),
+            'aes_ak': getattr(majorlogin_response, "ak", getattr(majorlogin_response, "aes_ak", b"")),
+            'iv_i': getattr(majorlogin_response, "aiv", getattr(majorlogin_response, "iv_i", b"")),
             'functional_addrs': res_proto.functional_addrs or get_proto_field(dict_res, 14),
             'informational_addrs': res_proto.informational_addrs or get_proto_field(dict_res, 32),
             'release_version': release_version,
             'client_version': client_version,
-            'server_url': _majorlogin_attr(majorlogin_response, 'server_url', 'url', default=''),
+            'server_url': getattr(majorlogin_response, "server_url", getattr(majorlogin_response, "url", "")),
             'login_payload_data': login_payload_data,
             'auth_type': 'guest',
             'auth_uid': uid,
@@ -1936,7 +1942,7 @@ async def process_account_token(access_token: str) -> Optional[Dict]:
 
         getlogin_result = await send_getlogin(
             login_payload_data,
-            _majorlogin_attr(majorlogin_response, 'server_url', 'url', default=''),
+            getattr(majorlogin_response, "server_url", getattr(majorlogin_response, "url", "")),
             majorlogin_response.token,
             release_version
         )
@@ -1949,7 +1955,7 @@ async def process_account_token(access_token: str) -> Optional[Dict]:
         exp = int(get_proto_field(dict_res, 7, 0))
         likes = int(get_proto_field(dict_res, 8, 0))
         nickname = res_proto.nickname or get_proto_field(dict_res, 4, f"Player_{acc_id}")
-        region = _majorlogin_attr(majorlogin_response, 'lock_region', 'region', default='BD') or get_proto_field(dict_res, 3, "BD")
+        region = majorlogin_response.region or get_proto_field(dict_res, 3, "BD")
 
         bot_state.register_account(uid=acc_id, nickname=nickname, region=region, level=level, exp=exp, likes=likes)
 
@@ -1964,14 +1970,14 @@ async def process_account_token(access_token: str) -> Optional[Dict]:
             'access_token': access_token,
             'platform': str(platform),
             'token': majorlogin_response.token,
-            'server_time': _majorlogin_attr(majorlogin_response, 'kts', 'server_time', default=0),
-            'aes_ak': _majorlogin_attr(majorlogin_response, 'ak', 'aes_ak', default=b''),
-            'iv_i': _majorlogin_attr(majorlogin_response, 'aiv', 'iv_i', default=b''),
+            'server_time': getattr(majorlogin_response, "kts", getattr(majorlogin_response, "server_time", 0)),
+            'aes_ak': getattr(majorlogin_response, "ak", getattr(majorlogin_response, "aes_ak", b"")),
+            'iv_i': getattr(majorlogin_response, "aiv", getattr(majorlogin_response, "iv_i", b"")),
             'functional_addrs': res_proto.functional_addrs or get_proto_field(dict_res, 14),
             'informational_addrs': res_proto.informational_addrs or get_proto_field(dict_res, 32),
             'release_version': release_version,
             'client_version': client_version,
-            'server_url': _majorlogin_attr(majorlogin_response, 'server_url', 'url', default=''),
+            'server_url': getattr(majorlogin_response, "server_url", getattr(majorlogin_response, "url", "")),
             'login_payload_data': login_payload_data,
             'platform': platform,
             'auth_type': 'token',
